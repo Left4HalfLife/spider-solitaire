@@ -9,6 +9,28 @@ no external scripts, fonts or images. Cards are drawn with Unicode and CSS.
 Download `index.html` and open it in any modern browser (desktop or mobile).
 No internet connection or server is needed.
 
+### Run with Docker Compose
+
+With Docker and the Compose plugin installed, run:
+
+```sh
+docker compose up --build
+```
+
+Open <http://localhost:8000>. The server is bound to localhost. Stop it with
+`Ctrl+C`, then run `docker compose down` to remove the container and network.
+Rebuild after changing the game or server files.
+
+To run the Flask tests locally, install the dependencies in a virtual environment
+and run:
+
+```sh
+python3 -m venv .venv
+. .venv/bin/activate
+pip install -r requirements.txt
+python -m unittest discover -s tests
+```
+
 ## Features
 
 - **1, 2 or 4 suits**: choose from the mode dropdown (this starts a new game).
