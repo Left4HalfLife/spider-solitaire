@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0b5d33">
+<title>Spider Solitaire</title>
+<style>
+  :root {
+    --cw: 80px;
+    --ch: 112px;
+    --gap: 8px;
+    --felt: #0b6b3a;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
+    background: radial-gradient(ellipse at center, #13874b 0%, var(--felt) 55%, #064424 100%) fixed;
+    color: #fff;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px;
+    background: rgba(0, 0, 0, .28);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, .3);
+  }
+  h1 { font-size: 18px; margin: 0 6px 0 0; white-space: nowrap; }
+  .btn, select {
+    font: inherit;
+    font-size: 14px;
+    color: #fff;
+    background: rgba(255, 255, 255, .14);
+    border: 1px solid rgba(255, 255, 255, .35);
+    border-radius: 6px;
+    padding: 6px 10px;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  select option { color: #000; }
+  .btn:hover, select:hover { background: rgba(255, 255, 255, .24); }
+  .btn:active { transform: translateY(1px); }
+  .btn:disabled { opacity: .45; cursor: default; }
+  .stats { margin-left: auto; display: flex; gap: 12px; font-size: 14px; white-space: nowrap; }
+  .stats b { font-variant-numeric: tabular-nums; }
+  #status {
+    min-height: 1.5em;
+    font-size: 13px;
+    padding: 3px 8px 0;
+    text-align: center;
+    color: #eaffea;
+  }
+  #tray {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    padding: 4px var(--gap);
+    gap: 8px;
+  }
+  #found { display: flex; gap: calc(var(--gap) * .6); flex-wrap: nowrap; }
+  .mini {
+    position: relative;
+    width: calc(var(--cw) * .6);
+    height: calc(var(--ch) * .6);
+    border-radius: calc(var(--cw) * .06);
+    border: 1px dashed rgba(255, 255, 255, .35);
+    flex: none;
+  }
+  .card.mini {
+    position: relative;
+    width: calc(var(--cw) * .6);
+    height: calc(var(--ch) * .6);
+    border-radius: calc(var(--cw) * .06);
+    font-size: calc(var(--cw) * .2);
+  }
+  .card.mini .pip { font-size: calc(var(--cw) * .3); }
+  .card.mini .idx.br { display: none; }
+  #stock {
+    position: relative;
+    height: calc(var(--ch) * .6);
+    cursor: pointer;
+    flex: none;
+  }
+  #stock .mini { position: absolute; top: 0; }
+  #stock .count {
+    position: absolute;
+    bottom: -2px;
+    right: 2px;
+    font-size: 11px;
+    font-weight: 700;
+    text-shadow: 0 1px 2px #000;
+    pointer-events: none;
+  }
+  #stock.empty { cursor: default; }
+  #board {
+    flex: 1;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    gap: var(--gap);
+    padding: 4px var(--gap) var(--gap);
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+  .col {
+    position: relative;
+    width: var(--cw);
+    min-height: var(--ch);
+    flex: none;
+  }
+  .col::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 0;
+    width: var(--cw);
+    height: var(--ch);
+    border: 2px dashed rgba(255, 255, 255, .25);
+    border-radius: calc(var(--cw) * .08);
+  }
+  .card {
+    position: absolute;
+    left: 0;
+    width: var(--cw);
+    height: var(--ch);
+    border-radius: calc(var(--cw) * .08);
+    background: linear-gradient(160deg, #fff 0%, #f4f4f0 100%);
+    border: 1px solid #8a8a8a;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .45);
+    color: #111;
+    font-size: calc(var(--cw) * .28);
+    line-height: 1;
+    cursor: pointer;
+    touch-action: none;
+    overflow: hidden;
+  }
+  .card.red { color: #c8102e; }
+  .card .idx {
+    position: absolute;
+    top: 4%;
+    left: 6%;
+    font-weight: 700;
+    white-space: nowrap;
+    letter-spacing: -.04em;
+  }
+  .card .idx.br { top: auto; left: auto; bottom: 4%; right: 6%; transform: rotate(180deg); }
+  .card .pip {
+    position: absolute;
+    left: 0; right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    text-align: center;
+    font-size: calc(var(--cw) * .5);
+  }
+  .card.down {
+    background:
+      repeating-linear-gradient(45deg, rgba(255, 255, 255, .13) 0 3px, transparent 3px 7px),
+      repeating-linear-gradient(-45deg, rgba(255, 255, 255, .13) 0 3px, transparent 3px 7px),
+      linear-gradient(135deg, #1d4fa8, #12357a);
+    border: 2px solid #fff;
+    cursor: default;
+  }
+  .card.mini.down { border-width: 1px; }
+  .card.dragging { z-index: 1000; box-shadow: 0 6px 16px rgba(0, 0, 0, .55); pointer-events: none; }
+  .card.hint-src { box-shadow: 0 0 0 3px #ffe14d, 0 0 12px 3px #ffe14d; }
+  .col.hint-dst::after, #stock.hint::after {
+    content: "";
+    position: absolute;
+    left: -3px; right: -3px;
+    top: var(--hint-top, 0);
+    height: calc(var(--ch) + 6px);
+    border-radius: calc(var(--cw) * .1);
+    box-shadow: 0 0 0 3px #4dd2ff, 0 0 14px 4px #4dd2ff;
+    pointer-events: none;
+    z-index: 500;
+    animation: pulse 1s ease-in-out infinite;
+  }
+  #stock.hint::after { top: -3px; height: calc(var(--ch) * .6 + 6px); }
+  @keyframes pulse { 50% { opacity: .35; } }
+  .card.shake { animation: shake .3s; }
+  @keyframes shake {
+    25% { transform: translateX(-4px); }
+    75% { transform: translateX(4px); }
+  }
+  #overlay {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, .55);
+    z-index: 2000;
+    padding: 16px;
+  }
+  #overlay.show { display: flex; }
+  .dialog {
+    background: #fff;
+    color: #222;
+    border-radius: 12px;
+    padding: 20px 22px;
+    max-width: 360px;
+    width: 100%;
+    text-align: center;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .5);
+  }
+  .dialog h2 { margin: 0 0 8px; }
+  .dialog p { margin: 0 0 16px; line-height: 1.4; }
+  .dialog .row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+  .dialog .btn { color: #fff; background: #0b6b3a; border-color: #0b6b3a; }
+  .dialog .btn.alt { background: #666; border-color: #666; }
+  .dialog select { color: #222; background: #eee; border-color: #aaa; }
+  @media (max-width: 600px) {
+    h1 { display: none; }
+    header { gap: 4px; padding: 4px; }
+    .btn, select { font-size: 13px; padding: 6px 7px; }
+    .stats { gap: 8px; font-size: 12px; }
+    #status { font-size: 12px; }
+    .card .idx { left: 4%; letter-spacing: -.08em; }
+    .card .idx.br { display: none; }
+    .card .pip { top: 70%; }
+    .card.mini .pip { top: 60%; }
+    .card { border-radius: 4px; font-size: calc(var(--cw) * .32); }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>&#9824;&#xFE0E; Spider</h1>
+  <select id="mode" aria-label="Game mode">
+    <option value="1">1 Suit</option>
+    <option value="2">2 Suits</option>
+    <option value="4">4 Suits</option>
+  </select>
+  <button class="btn" id="newBtn" title="New game (N)">New</button>
+  <button class="btn" id="undoBtn" title="Undo (Ctrl+Z)">Undo</button>
+  <button class="btn" id="hintBtn" title="Hint (H)">Hint</button>
+  <div class="stats">
+    <span>Score <b id="score">500</b></span>
+    <span>Moves <b id="moves">0</b></span>
+  </div>
+</header>
+<div id="status">Tap a card to auto-move it, or drag it. Tap the stock to deal.</div>
+<div id="tray">
+  <div id="found" aria-label="Completed suits"></div>
+  <div id="stock" title="Deal a new row (D)" aria-label="Stock"></div>
+</div>
+<div id="board"></div>
+<div id="overlay">
+  <div class="dialog">
+    <h2 id="ovTitle"></h2>
+    <p id="ovText"></p>
+    <div class="row" id="ovButtons"></div>
+  </div>
+</div>
+<script>
+(function () {
+  'use strict';
+
+  var SUITS = ['\u2660', '\u2665', '\u2663', '\u2666']; // spades, hearts, clubs, diamonds
+  var RED = [false, true, false, true];
+  var RANKS = ['', 'A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+  var FACES = { 11: '\u265E', 12: '\u265B', 13: '\u265A' }; // knight, queen, king glyphs
+  var VS = '\uFE0E'; // text presentation selector (avoid emoji rendering)
+  var STORE = 'spider-solitaire-save-v1';
+  var SEARCH_LIMIT = 40000;
+
+  var $ = function (id) { return document.getElementById(id); };
+  var boardEl = $('board'), foundEl = $('found'), stockEl = $('stock'), statusEl = $('status');
+  var modeEl = $('mode'), overlayEl = $('overlay');
+
+  var S = null;          // current game state
+  var history = [];      // undo stack of serialized states
+  var hints = null, hintIdx = -1, hintTimer = 0;
+  var analyzeToken = 0;
+  var gameOver = false;
+  var drag = null;
+
+  /* ---------- helpers ---------- */
+  function cardName(c) { return RANKS[c.r] + SUITS[c.s] + VS; }
+  function top(col) { return col[col.length - 1]; }
+  function clone(o) { return JSON.parse(JSON.stringify(o)); }
+  function setStatus(t) { statusEl.textContent = t; }
+
+  function shuffle(a) {
+    for (var i = a.length - 1; i > 0; i--) {
+      var j;
+      if (window.crypto && crypto.getRandomValues) {
+        var buf = new Uint32Array(1);
+        crypto.getRandomValues(buf);
+        j = buf[0] % (i + 1);
+      } else {
+        j = Math.floor(Math.random() * (i + 1));
+      }
+      var t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+
+  /* ---------- game setup ---------- */
+  function newGame(nSuits) {
+    nSuits = [1, 2, 4].indexOf(nSuits) >= 0 ? nSuits : 1;
+    var suitIdx = nSuits === 1 ? [0] : nSuits === 2 ? [0, 1] : [0, 1, 2, 3];
+    var copies = 8 / nSuits, deck = [];
+    suitIdx.forEach(function (s) {
+      for (var k = 0; k < copies; k++) {
+        for (var r = 1; r <= 13; r++) deck.push({ s: s, r: r, up: false });
+      }
+    });
+    shuffle(deck);
+    var cols = [];
+    for (var c = 0; c < 10; c++) cols.push([]);
+    for (var i = 0; i < 54; i++) cols[i % 10].push(deck.pop());
+    cols.forEach(function (col) { top(col).up = true; });
+    S = { suits: nSuits, cols: cols, stock: deck, done: [], moves: 0, score: 500 };
+    history = [];
+    gameOver = false;
+    modeEl.value = String(nSuits);
+    hideOverlay();
+    setStatus('New ' + nSuits + '-suit game. Tap a card to auto-move it, or drag it.');
+    afterAction();
+  }
+
+  /* ---------- rules ---------- */
+  function runStart(col) {
+    if (!col.length) return -1;
+    var i = col.length - 1;
+    while (i > 0 && col[i - 1].up && col[i - 1].s === col[i].s && col[i - 1].r === col[i].r + 1) i--;
+    return i;
+  }
+  function canPlace(card, dest) {
+    return dest.length === 0 || top(dest).r === card.r + 1;
+  }
+  function tableauCount(st) {
+    return st.cols.reduce(function (n, c) { return n + c.length; }, 0);
+  }
+  function canDeal(st) {
+    if (!st.stock.length) return false;
+    // standard rule: no empty columns allowed when dealing (unless there are too few cards to fill them)
+    return st.cols.every(function (c) { return c.length > 0; }) || tableauCount(st) < 10;
+  }
+
+  function legalMoves(st) {
+    var list = [];
+    for (var f = 0; f < 10; f++) {
+      var col = st.cols[f];
+      var rs = runStart(col);
+      if (rs < 0) continue;
+      for (var i = rs; i < col.length; i++) {
+        var card = col[i];
+        for (var t = 0; t < 10; t++) {
+          if (t === f) continue;
+          var dest = st.cols[t];
+          if (dest.length === 0 && i === 0) continue; // moving a whole column to an empty one does nothing
+          if (canPlace(card, dest)) list.push({ from: f, index: i, to: t });
+        }
+      }
+    }
+    return list;
+  }
+
+  function moveValue(st, m) {
+    var col = st.cols[m.from], dest = st.cols[m.to], card = col[m.index];
+    var below = m.index > 0 ? col[m.index - 1] : null;
+    var v = 0;
+    if (dest.length) {
+      if (top(dest).s === card.s) v += 40;
+      else v += 10;
+    } else {
+      v -= 15;
+    }
+    if (below && !below.up) v += 50;              // reveals a hidden card
+    if (!below) v += 30;                          // empties a column
+    if (below && below.up && below.r === card.r + 1) {
+      if (below.s === card.s) v -= 40;            // splits a same-suit run
+      else if (!dest.length || top(dest).s !== card.s) v -= 20; // just shuffles around
+    }
+    v += (col.length - m.index) * 0.5;            // prefer longer runs
+    return v;
+  }
+
+  function sortedMoves(st) {
+    return legalMoves(st).map(function (m) { m.v = moveValue(st, m); return m; })
+      .sort(function (a, b) { return b.v - a.v; });
+  }
+
+  function checkComplete(ci) {
+    var col = S.cols[ci];
+    if (col.length < 13) return false;
+    var start = col.length - 13, s = col[start].s;
+    for (var k = 0; k < 13; k++) {
+      var c = col[start + k];
+      if (!c.up || c.s !== s || c.r !== 13 - k) return false;
+    }
+    col.splice(start, 13);
+    S.done.push(s);
+    S.score += 100;
+    if (col.length) top(col).up = true;
+    return true;
+  }
+
+  function pushHistory() {
+    history.push(JSON.stringify(S));
+    if (history.length > 1000) history.shift();
+  }
+
+  function doMove(from, index, to) {
+    var src = S.cols[from], dest = S.cols[to];
+    if (from === to || index < runStart(src) || index >= src.length || !canPlace(src[index], dest)) return false;
+    pushHistory();
+    var cards = src.splice(index);
+    S.cols[to] = dest.concat(cards);
+    if (src.length && !top(src).up) top(src).up = true;
+    S.moves++;
+    S.score = Math.max(0, S.score - 1);
+    var completed = checkComplete(to);
+    setStatus(completed ? 'Suit completed! ' + (8 - S.done.length) + ' to go.'
+      : 'Moved ' + cardName(cards[0]) + (cards.length > 1 ? ' (+' + (cards.length - 1) + ')' : '') + '.');
+    afterAction();
+    return true;
+  }
+
+  function deal() {
+    if (!S.stock.length) { setStatus('The stock is empty.'); return; }
+    if (!canDeal(S)) { setStatus('Fill every empty column before dealing.'); flashEmpty(); return; }
+    pushHistory();
+    for (var c = 0; c < 10 && S.stock.length; c++) {
+      var card = S.stock.pop();
+      card.up = true;
+      S.cols[c].push(card);
+    }
+    var completed = 0;
+    for (var i = 0; i < 10; i++) if (checkComplete(i)) completed++;
+    S.moves++;
+    S.score = Math.max(0, S.score - 1);
+    setStatus(completed ? 'Dealt and completed a suit!' : 'Dealt a new row. ' + (S.stock.length / 10) + ' deal(s) left.');
+    afterAction();
+  }
+
+  function undo() {
+    if (!history.length) { setStatus('Nothing to undo.'); return; }
+    S = JSON.parse(history.pop());
+    gameOver = false;
+    hideOverlay();
+    setStatus('Undone.');
+    afterAction();
+  }
+
+  function autoMove(from, index) {
+    var opts = legalMoves(S).filter(function (m) { return m.from === from && m.index === index; });
+    if (!opts.length) {
+      setStatus('No legal move for ' + cardName(S.cols[from][index]) + '.');
+      shake(from, index);
+      return;
+    }
+    opts.forEach(function (m) {
+      var dest = S.cols[m.to];
+      m.v = dest.length ? (top(dest).s === S.cols[from][index].s ? 2 : 1) : 0;
+    });
+    opts.sort(function (a, b) { return b.v - a.v || a.to - b.to; });
+    doMove(from, index, opts[0].to);
+  }
+
+  /* ---------- game-over detection ----------
+     Explores every position reachable through tableau moves alone. If none of them
+     reveals a hidden card, completes a suit or allows a deal, the only remaining
+     moves just shuffle cards around in loops, so the game is over. */
+  function createSearch(st) {
+    if (st.done.length === 8) return function () { return 'win'; };
+    if (canDeal(st)) return function () { return 'ok'; };
+    var stockLeft = st.stock.length > 0;
+    var start = st.cols.map(function (c) {
+      var d = 0;
+      while (d < c.length && !c[d].up) d++;
+      return { d: d, up: c.slice(d).map(function (x) { return x.s * 13 + x.r - 1; }) };
+    });
+    function rank(x) { return x % 13; }
+    function suit(x) { return (x / 13) | 0; }
+    function key(cols) {
+      return cols.map(function (c) { return c.d + ':' + c.up.join(','); }).sort().join('|');
+    }
+    function complete(up) {
+      if (up.length < 13) return false;
+      var b = up.length - 13, s = suit(up[b]);
+      for (var k = 0; k < 13; k++) if (suit(up[b + k]) !== s || rank(up[b + k]) !== 12 - k) return false;
+      return true;
+    }
+    var seen = new Set([key(start)]);
+    var queue = [start], qi = 0;
+    // Processes positions until a verdict is reached ('ok' / 'stuck') or the
+    // time budget runs out (returns null so the caller can resume later).
+    return function step(budgetMs) {
+      var deadline = Date.now() + budgetMs;
+      while (qi < queue.length) {
+        if ((qi & 63) === 0 && Date.now() > deadline) return null;
+        var cols = queue[qi];
+        queue[qi++] = null;
+        if (stockLeft && cols.every(function (c) { return c.d + c.up.length > 0; })) return 'ok';
+        for (var f = 0; f < 10; f++) {
+          var src = cols[f], up = src.up;
+          if (!up.length) continue;
+          var rs = up.length - 1;
+          while (rs > 0 && suit(up[rs - 1]) === suit(up[rs]) && rank(up[rs - 1]) === rank(up[rs]) + 1) rs--;
+          for (var i = rs; i < up.length; i++) {
+            for (var t = 0; t < 10; t++) {
+              if (t === f) continue;
+              var dest = cols[t];
+              if (dest.up.length === 0) {
+                if (i === 0 && src.d === 0) continue;
+              } else if (rank(dest.up[dest.up.length - 1]) !== rank(up[i]) + 1) continue;
+              if (i === 0 && src.d > 0) return 'ok'; // reveals a hidden card
+              var nUp = dest.up.concat(up.slice(i));
+              if (complete(nUp)) return 'ok';         // completes a suit
+              var next = cols.slice();
+              next[f] = { d: src.d, up: up.slice(0, i) };
+              next[t] = { d: dest.d, up: nUp };
+              var k = key(next);
+              if (!seen.has(k)) {
+                if (seen.size >= SEARCH_LIMIT) return 'ok'; // too many positions to be sure
+                seen.add(k);
+                queue.push(next);
+              }
+            }
+          }
+        }
+      }
+      return 'stuck';
+    };
+  }
+
+  function analyze(st) {
+    return createSearch(st)(Infinity);
+  }
+
+  function scheduleAnalyze() {
+    var token = ++analyzeToken;
+    var step = null;
+    function run() {
+      if (token !== analyzeToken) return;
+      if (!step) step = createSearch(S);
+      var res = step(12); // small slices keep the UI responsive
+      if (res === null) { setTimeout(run, 0); return; }
+      if (res === 'win') {
+        gameOver = true;
+        showOverlay('You won! \uD83C\uDF89', 'All 8 suits completed in ' + S.moves + ' moves with a score of ' + S.score + '.', [
+          ['New game', function () { newGame(S.suits); }],
+          ['Change mode', showModePicker, true]
+        ]);
+        setStatus('You won!');
+      } else if (res === 'stuck') {
+        gameOver = true;
+        showOverlay('Game over', 'No moves left that can progress the game \u2014 only loops remain. Undo to try a different path, or start a new game.', [
+          ['Undo', undo, true],
+          ['New game', function () { newGame(S.suits); }],
+          ['Change mode', showModePicker, true]
+        ]);
+        setStatus('Game over: no progressing moves left.');
+      }
+    }
+    setTimeout(run, 30);
+  }
+
+  /* ---------- hints ---------- */
+  function clearHint() {
+    clearTimeout(hintTimer);
+    boardEl.querySelectorAll('.hint-src').forEach(function (e) { e.classList.remove('hint-src'); });
+    boardEl.querySelectorAll('.hint-dst').forEach(function (e) { e.classList.remove('hint-dst'); });
+    stockEl.classList.remove('hint');
+  }
+
+  function hint() {
+    if (!hints) {
+      hints = sortedMoves(S);
+      if (canDeal(S)) hints.push({ deal: true });
+      hintIdx = -1;
+    }
+    clearHint();
+    if (!hints.length) {
+      setStatus('No legal moves available.');
+      return;
+    }
+    hintIdx = (hintIdx + 1) % hints.length;
+    var h = hints[hintIdx], label = 'Hint ' + (hintIdx + 1) + '/' + hints.length + ': ';
+    if (h.deal) {
+      stockEl.classList.add('hint');
+      setStatus(label + 'deal a new row from the stock.');
+    } else {
+      var card = S.cols[h.from][h.index], dest = S.cols[h.to];
+      var colEls = boardEl.children;
+      var srcCards = colEls[h.from].children;
+      for (var i = h.index; i < srcCards.length; i++) srcCards[i].classList.add('hint-src');
+      var dstEl = colEls[h.to];
+      var lastCard = dstEl.lastElementChild;
+      dstEl.style.setProperty('--hint-top', (lastCard ? lastCard.offsetTop : 0) - 3 + 'px');
+      dstEl.classList.add('hint-dst');
+      setStatus(label + 'move ' + cardName(card) + ' from column ' + (h.from + 1) + ' to ' +
+        (dest.length ? cardName(top(dest)) + ' in column ' + (h.to + 1) : 'empty column ' + (h.to + 1)) + '.');
+    }
+    hintTimer = setTimeout(clearHint, 4000);
+  }
+
+  /* ---------- rendering ---------- */
+  function layout() {
+    var W = document.documentElement.clientWidth, H = window.innerHeight;
+    var gap = W < 600 ? 3 : W < 900 ? 5 : 8;
+    var cw = Math.floor((W - gap * 11) / 10);
+    cw = Math.min(cw, 96, Math.floor(H * 0.2 / 1.4));
+    cw = Math.max(cw, 24);
+    var ch = Math.round(cw * 1.4);
+    var root = document.documentElement.style;
+    root.setProperty('--cw', cw + 'px');
+    root.setProperty('--ch', ch + 'px');
+    root.setProperty('--gap', gap + 'px');
+    return { cw: cw, ch: ch };
+  }
+
+  function cardEl(c) {
+    var e = document.createElement('div');
+    if (!c.up) { e.className = 'card down'; return e; }
+    e.className = 'card' + (RED[c.s] ? ' red' : '');
+    var label = RANKS[c.r] + SUITS[c.s] + VS;
+    var center = (FACES[c.r] ? FACES[c.r] : SUITS[c.s]) + VS;
+    e.innerHTML = '<span class="idx">' + label + '</span><span class="pip">' + center +
+      '</span><span class="idx br">' + label + '</span>';
+    e.setAttribute('aria-label', RANKS[c.r] + ' of ' + ['spades', 'hearts', 'clubs', 'diamonds'][c.s]);
+    return e;
+  }
+
+  function render() {
+    var dims = layout();
+    clearHint();
+    boardEl.innerHTML = '';
+    var avail = Math.max(boardEl.clientHeight - 14, dims.ch * 2);
+    var fontPx = dims.cw * 0.32;
+    S.cols.forEach(function (col, ci) {
+      var ce = document.createElement('div');
+      ce.className = 'col';
+      ce.dataset.col = ci;
+      var nd = 0;
+      while (nd < col.length && !col[nd].up) nd++;
+      var nu = col.length - nd;
+      // spread cards out more when there is spare vertical room (e.g. phones in portrait)
+      var dOff = Math.max(4, dims.ch * 0.1, Math.min(dims.ch * 0.2, avail / 40));
+      var uOff = Math.max(dims.ch * 0.27, Math.min(dims.ch * 0.5, avail / 14));
+      var need = dims.ch + nd * dOff + Math.max(0, nu - 1) * uOff;
+      if (need > avail && col.length > 1) {
+        var f = (avail - dims.ch) / (nd * dOff + Math.max(0, nu - 1) * uOff);
+        dOff = Math.max(3, dOff * f);
+        uOff = Math.max(fontPx * 1.15, uOff * f);
+      }
+      var y = 0;
+      col.forEach(function (c, i) {
+        var e = cardEl(c);
+        e.style.top = y + 'px';
+        e.dataset.col = ci;
+        e.dataset.idx = i;
+        ce.appendChild(e);
+        y += c.up ? uOff : dOff;
+      });
+      ce.style.height = (col.length ? y - (top(col).up ? uOff : dOff) + dims.ch : dims.ch) + 'px';
+      boardEl.appendChild(ce);
+    });
+
+    foundEl.innerHTML = '';
+    for (var i = 0; i < 8; i++) {
+      var slot;
+      if (i < S.done.length) {
+        slot = cardEl({ s: S.done[i], r: 13, up: true });
+        slot.classList.add('mini');
+        slot.style.cursor = 'default';
+      } else {
+        slot = document.createElement('div');
+        slot.className = 'mini';
+      }
+      foundEl.appendChild(slot);
+    }
+
+    stockEl.innerHTML = '';
+    var deals = Math.ceil(S.stock.length / 10);
+    var step = Math.max(3, dims.cw * 0.12);
+    stockEl.style.width = 'calc(var(--cw) * .6 + ' + Math.max(0, deals - 1) * step + 'px)';
+    stockEl.classList.toggle('empty', deals === 0);
+    if (!deals) {
+      var ph = document.createElement('div');
+      ph.className = 'mini';
+      stockEl.appendChild(ph);
+      stockEl.style.width = 'calc(var(--cw) * .6)';
+    }
+    for (var d = 0; d < deals; d++) {
+      var b = document.createElement('div');
+      b.className = 'mini card down';
+      b.style.left = d * step + 'px';
+      stockEl.appendChild(b);
+    }
+    if (deals) {
+      var cnt = document.createElement('span');
+      cnt.className = 'count';
+      cnt.textContent = deals;
+      stockEl.appendChild(cnt);
+    }
+
+    $('score').textContent = S.score;
+    $('moves').textContent = S.moves;
+    $('undoBtn').disabled = history.length === 0;
+  }
+
+  function afterAction() {
+    hints = null;
+    save();
+    render();
+    scheduleAnalyze();
+  }
+
+  function shake(ci, idx) {
+    var cards = boardEl.children[ci] && boardEl.children[ci].children;
+    if (!cards) return;
+    for (var i = idx; i < cards.length; i++) {
+      (function (el) {
+        el.classList.remove('shake');
+        void el.offsetWidth;
+        el.classList.add('shake');
+      })(cards[i]);
+    }
+  }
+
+  function flashEmpty() {
+    S.cols.forEach(function (c, i) {
+      if (c.length) return;
+      var el = boardEl.children[i];
+      el.style.setProperty('--hint-top', '-3px');
+      el.classList.add('hint-dst');
+    });
+    clearTimeout(hintTimer);
+    hintTimer = setTimeout(clearHint, 1500);
+  }
+
+  /* ---------- overlay ---------- */
+  function showOverlay(title, text, buttons) {
+    $('ovTitle').textContent = title;
+    $('ovText').textContent = text;
+    var row = $('ovButtons');
+    row.innerHTML = '';
+    buttons.forEach(function (b) {
+      var btn = document.createElement('button');
+      btn.className = 'btn' + (b[2] ? ' alt' : '');
+      btn.textContent = b[0];
+      btn.addEventListener('click', function () { hideOverlay(); b[1](); });
+      row.appendChild(btn);
+    });
+    overlayEl.classList.add('show');
+  }
+  function hideOverlay() { overlayEl.classList.remove('show'); }
+
+  function showModePicker() {
+    showOverlay('Choose game mode', 'How many suits would you like to play with?', [
+      ['1 Suit', function () { newGame(1); }],
+      ['2 Suits', function () { newGame(2); }],
+      ['4 Suits', function () { newGame(4); }],
+      ['Cancel', function () {}, true]
+    ]);
+  }
+
+  function confirmNew(nSuits) {
+    if (!S || S.moves === 0 || gameOver) { newGame(nSuits); return; }
+    showOverlay('Start a new game?', 'Your current game will be lost.', [
+      ['New ' + nSuits + '-suit game', function () { newGame(nSuits); }],
+      ['Cancel', function () { modeEl.value = String(S.suits); }, true]
+    ]);
+  }
+
+  /* ---------- persistence ---------- */
+  function save() {
+    try {
+      localStorage.setItem(STORE, JSON.stringify({ S: S, history: history.slice(-200) }));
+    } catch (e) { /* storage unavailable (e.g. private mode) - ignore */ }
+  }
+  function load() {
+    try {
+      var data = JSON.parse(localStorage.getItem(STORE) || 'null');
+      if (data && data.S && Array.isArray(data.S.cols) && data.S.cols.length === 10) {
+        S = data.S;
+        history = Array.isArray(data.history) ? data.history : [];
+        modeEl.value = String(S.suits);
+        return true;
+      }
+    } catch (e) { /* corrupt or unavailable - start fresh */ }
+    return false;
+  }
+
+  /* ---------- input ---------- */
+  boardEl.addEventListener('pointerdown', function (e) {
+    if (e.button !== undefined && e.button !== 0) return;
+    var ce = e.target.closest('.card');
+    if (!ce || !boardEl.contains(ce)) return;
+    var f = +ce.dataset.col, i = +ce.dataset.idx, col = S.cols[f];
+    if (!col[i].up) return;
+    e.preventDefault();
+    var movable = i >= runStart(col);
+    var els = [];
+    var colEl = boardEl.children[f];
+    for (var k = i; k < colEl.children.length; k++) els.push(colEl.children[k]);
+    drag = { f: f, i: i, x0: e.clientX, y0: e.clientY, started: false, movable: movable, els: els, id: e.pointerId };
+  });
+
+  window.addEventListener('pointermove', function (e) {
+    if (!drag || e.pointerId !== drag.id) return;
+    var dx = e.clientX - drag.x0, dy = e.clientY - drag.y0;
+    if (!drag.started) {
+      if (Math.abs(dx) + Math.abs(dy) < 8 || !drag.movable) return;
+      drag.started = true;
+      clearHint();
+      drag.els.forEach(function (el) { el.classList.add('dragging'); });
+    }
+    e.preventDefault();
+    drag.els.forEach(function (el) { el.style.transform = 'translate(' + dx + 'px,' + dy + 'px)'; });
+  }, { passive: false });
+
+  function endDrag(e, cancelled) {
+    if (!drag || e.pointerId !== drag.id) return;
+    var d = drag;
+    drag = null;
+    if (cancelled) { render(); return; }
+    if (!d.started) {
+      if (!d.movable) {
+        setStatus('Only a same-suit descending run can be moved together.');
+        shake(d.f, d.i);
+        return;
+      }
+      autoMove(d.f, d.i);
+      return;
+    }
+    // choose the column with the most horizontal overlap with the dragged card
+    var r = d.els[0].getBoundingClientRect();
+    var best = -1, bestOverlap = 0;
+    Array.prototype.forEach.call(boardEl.children, function (colEl, ci) {
+      var cr = colEl.getBoundingClientRect();
+      var ov = Math.min(r.right, cr.right) - Math.max(r.left, cr.left);
+      if (ov > bestOverlap) { bestOverlap = ov; best = ci; }
+    });
+    if (best >= 0 && best !== d.f && canPlace(S.cols[d.f][d.i], S.cols[best])) {
+      doMove(d.f, d.i, best);
+    } else {
+      if (best !== d.f && best >= 0) setStatus('Can\u2019t place ' + cardName(S.cols[d.f][d.i]) + ' there.');
+      render();
+    }
+  }
+  window.addEventListener('pointerup', function (e) { endDrag(e, false); });
+  window.addEventListener('pointercancel', function (e) { endDrag(e, true); });
+
+  stockEl.addEventListener('click', deal);
+  $('newBtn').addEventListener('click', function () { confirmNew(+modeEl.value); });
+  $('undoBtn').addEventListener('click', undo);
+  $('hintBtn').addEventListener('click', hint);
+  modeEl.addEventListener('change', function () { confirmNew(+modeEl.value); });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.target && e.target.tagName === 'SELECT') return;
+    var k = e.key.toLowerCase();
+    if ((e.ctrlKey || e.metaKey) && k === 'z') { e.preventDefault(); undo(); }
+    else if (e.ctrlKey || e.metaKey || e.altKey) return;
+    else if (k === 'h') hint();
+    else if (k === 'd') deal();
+    else if (k === 'u') undo();
+    else if (k === 'n') confirmNew(+modeEl.value);
+    else if (k === 'escape') hideOverlay();
+  });
+
+  var resizeTimer = 0;
+  window.addEventListener('resize', function () {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function () { if (!drag) render(); }, 100);
+  });
+
+  // exposed for debugging / automated testing
+  window.spider = {
+    get state() { return S; },
+    set state(v) { S = v; history = []; gameOver = false; hideOverlay(); afterAction(); },
+    newGame: newGame, move: doMove, deal: deal, undo: undo, hint: hint,
+    legalMoves: function () { return legalMoves(S); },
+    analyze: function () { return analyze(S); }
+  };
+
+  if (load()) {
+    setStatus('Welcome back! Your game was restored.');
+    render();
+    scheduleAnalyze();
+  } else {
+    newGame(1);
+  }
+})();
+</script>
+</body>
+</html>
